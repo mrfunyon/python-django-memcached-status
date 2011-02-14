@@ -44,6 +44,10 @@ except:
     IMPORTED_SETTINGS = False
 from optparse import OptionParser,OptionGroup
 
+class CacheServerUnavailable(Exception):
+    pass
+
+
 RETURN_OK = 0
 RETURN_WARNING = 1
 RETURN_CRITICAL = 2
@@ -59,7 +63,7 @@ STYLE = {
             "magenta"    :     "\033[35m",
             "cyan"       :     "\033[36m",
             "white"      :     "\033[37m",}
-
+DEFAULT_STYLE='yellow'
 
 class PrintHelper(object):
     def __init__(self,stats,options,host):
@@ -82,27 +86,29 @@ class PrintHelper(object):
     def get_getrate(self):
         cmdget = int( self.stats['cmd_get'] )
         cmdset = int( self.stats['cmd_set'] )
-        getrate = ( (cmdget)*100)/(cmdget+cmdset)
-        dsp_getrate = getrate+0.5
-        return [dsp_getrate,getrate]
+        getrate = ( (cmdget) * 100) / (cmdget + cmdset)
+        dsp_getrate = getrate + 0.5
+        return [dsp_getrate, getrate]
     
     def get_hitrate(self):
         hits = int( self.stats['get_hits'])
         misses = int( self.stats['get_misses'])
+        if hits ==0 and misses == 0:
+            return [0, 0]
         hit_sum = (hits * 100) / (hits + misses)
         if hit_sum == 0:
             hitrate = 0
         else:
             hitrate = hit_sum
-        dsp_hitrate = hitrate+0.5
-        return [dsp_hitrate,hitrate]
+        dsp_hitrate = hitrate + 0.5
+        return [dsp_hitrate, hitrate]
     
 
 
 def print_status_report(ph):
     print_hitrate, hitrate = ph.get_hitrate()
     print_getrate, getrate = ph.get_getrate()
-    rate_str_c = "%s rate: \033[01;33m%s %%\033[00m"
+    rate_str_c = "%s rate: " + STYLE['yellow'] + "%s %%" + STYLE['default']
     rate_str_red = "%s rate: "+ STYLE['red'] +"%s %%" + STYLE['default']
     rate_str = "%s rate: %s %%"
 
@@ -110,10 +116,10 @@ def print_status_report(ph):
         if ph.banner:
             print "------------------------------------------------"
         if ph.colorize:
-            print "MemCache status for \033[01;32m%s\033[00m" % ( ph.cache_host )
-            print "\033[01;33m%d\033[00m items using \033[01;33m%d\033[00m of \033[01;33m%d\033[00m" % ( ph.items, ph.bytes, ph.limit_maxbytes )
-            print "\033[01;32m%5.2f%%\033[00m full" % ( ph.precent_full )
-            print "\033[01;33m%d\033[00m connections being handled" % ( ph.current_conns )
+            print "MemCache status for %s%s%s" % (STYLE['green'], ph.cache_host, STYLE['default'] )
+            print "%s%d%s items using %s%d%s of%s%d%s" % ( STYLE['yellow'], ph.items, STYLE['default'], STYLE['yellow'], ph.bytes,STYLE['default'], STYLE['yellow'], ph.limit_maxbytes, STYLE['default'] )
+            print "%s%5.2f%%%s full" % (STYLE['yellow'], ph.precent_full, STYLE['default'] )
+            print "%s%d%s connections being handled" % ( STYLE['yellow'], ph.current_conns, STYLE['default'] )
             if ph.get_rate:
                 if ph.hit_rate:
                     if hitrate < 50.5:
@@ -132,7 +138,7 @@ def print_status_report(ph):
         else:
             print "MemCache status for %s" % ( ph.cache_host )
             print "%d items using %d of %d" % ( ph.items, ph.bytes, ph.limit_maxbytes )
-            print "%5.2f%% full %d connections being handled" % ( ph.precent_full,ph.current_conns )
+            print "%5.2f%% full %d connections being handled" % ( ph.precent_full, ph.current_conns )
             if ph.get_rate:
                 getrate_str = rate_str % ( 'get', print_getrate )
                 if ph.hit_rate:
@@ -146,12 +152,12 @@ def print_status_report(ph):
         nagios_line = "CHECKMEMCACHE OK"
         if ph.hit_rate:
             nagios_line = "%s get rate: %s" %(nagios_line, print_getrate)
-            #print "CHECKMEMCACHE OK hit rate: %s %%|getrate=%s"%(print_hitrate,hitrate)
+            #print "CHECKMEMCACHE OK hit rate: %s %%|getrate=%s"%(print_hitrate, hitrate)
         if ph.get_rate:
             nagios_line = "%s hit rate: %s" %(nagios_line, print_hitrate)
-            #print "CHECKMEMCACHE OK hit rate: %s %%|hitrate=%s"%(print_getrate,getrate)
-        nagios_line = "%s %5.2f%% full on %s "% ( nagios_line, ph.precent_full,ph.cache_host )
-            #print "CHECKMEMCACHE OK: %5.2f%% full on %s " % ( ph.precent_full,ph.cache_host )
+            #print "CHECKMEMCACHE OK hit rate: %s %%|hitrate=%s"%(print_getrate, getrate)
+        nagios_line = "%s %5.2f%% full on %s "% ( nagios_line, ph.precent_full, ph.cache_host )
+            #print "CHECKMEMCACHE OK: %5.2f%% full on %s " % ( ph.precent_full, ph.cache_host )
         print nagios_line
 
 
@@ -178,9 +184,9 @@ def show_memcache_servers(options,server='NONE'):
     code_list = []
     if ";" in hosts:
         for cache_host in hosts.split(";"):
-            code_list.append(check_connection(m,cache_host,options))
+            code_list.append(check_connection(m, cache_host ,options))
     else:
-        return check_connection(m,hosts,options)
+        return check_connection(m, hosts, options)
     current_code = RETURN_OK
     if code_list:
         for code in code_list:
@@ -191,7 +197,7 @@ def show_memcache_servers(options,server='NONE'):
         return RETURN_OK
 
 
-def check_connection(m,cache_host,options):
+def check_connection(m, cache_host, options):
     try:
         h = memcache._Host( cache_host )
         h.connect()
@@ -215,7 +221,7 @@ def check_connection(m,cache_host,options):
         print "CHECKMEMCACHE CRITICAL: could not read/write memcache server!"
         return RETURN_CRITICAL
         
-    ph = PrintHelper(stats,options,cache_host) # helper for stats.
+    ph = PrintHelper(stats, options, cache_host) # helper for stats.
     if options.verbose:
         print stats
     print_status_report(ph)
@@ -225,19 +231,19 @@ def check_connection(m,cache_host,options):
 def main():
     usage = """usage: %prog -cHnPgrvb"""
     version="%prog 0.1"
-    parser = OptionParser(usage=usage,version="%prog 0.1")
+    parser = OptionParser(usage=usage, version="%prog 0.1")
     
-    group = OptionGroup(parser,"Nagios Settings","These settings are required for this script to be used by nagios")
-    group.add_option('-n',dest='nagios',action='store_true',default=False, help='makes nagios compatible output.')
-    group.add_option('-H','--host',dest='host',nargs=1,default=None,help='host to check')    
-    group.add_option('-P','--port',dest='port',nargs=1,default=11211, help = 'port to use [default %default]')
+    group = OptionGroup(parser, "Nagios Settings","These settings are required for this script to be used by nagios")
+    group.add_option('-n', dest='nagios', action='store_true', default=False, help='makes nagios compatible output.')
+    group.add_option('-H', '--host', dest='host', nargs=1, default=None, help='host to check')    
+    group.add_option('-P', '--port', dest='port', nargs=1, default=11211, help = 'port to use [default %default]')
     
     parser.add_option_group(group)
-    parser.add_option('-c','--colorize',dest='colorize',action='store_true',default=False,help='colorizes output for terminals with color')
-    parser.add_option('-g','--get_rate',dest='get_rate',action='store_true',default=False,help='retreive current get rate for memcache')
-    parser.add_option('-r','--hit_rate',dest='hit_rate',action='store_true',default=False,help='retreive current hit rate for memcache')
-    parser.add_option('-v','--verbose',dest='verbose',action='store_true',default=False, help='verbose mode, shows various memcached values')
-    parser.add_option('-b','--no-banner',dest='banner',action='store_false',default=True,help='show banners on the top of each entry [default %default]')
+    parser.add_option('-c', '--colorize', dest='colorize', action='store_true', default=False, help='colorizes output for terminals with color')
+    parser.add_option('-g', '--get_rate', dest='get_rate', action='store_true', default=False, help='retreive current get rate for memcache')
+    parser.add_option('-r', '--hit_rate', dest='hit_rate', action='store_true', default=False, help='retreive current hit rate for memcache')
+    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False, help='verbose mode, shows various memcached values')
+    parser.add_option('-b', '--no-banner', dest='banner', action='store_false', default=True, help='show banners on the top of each entry [default %default]')
     
     (options, args) = parser.parse_args()
     if args:
@@ -246,11 +252,11 @@ def main():
         except:
             server = 'NONE'
     elif options.host and options.port:
-        server = "memcached://%s:%s/"%(options.host,options.port)
+        server = "memcached://%s:%s/"%(options.host, options.port)
     else:
         server='NONE'
     
-    return show_memcache_servers(options,server)
+    return show_memcache_servers(options, server)
 
 if __name__ == '__main__':
     sys.exit(main())
