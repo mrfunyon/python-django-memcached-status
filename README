@@ -20,7 +20,7 @@ Features:
 Example Usage:
 
 Non-nagios usage:
-    me@MyComputer:~$ python see_memcache_stuff.py -H localhost -g -r
+    me@MyComputer:~$ python bin/see_memcache_stuff.py -H localhost -g -r
     MemCache status for localhost
     56 items using 2131956 of 67108864
      3.18% full
@@ -28,5 +28,5 @@ Non-nagios usage:
 get rate: 50.5 % hit rate: 75.5 %
 
 Nagios usage:
-    me@MyComputer:~$ python see_memcache_stuff.py -H localhost -n
+    me@MyComputer:~$ python bin/see_memcache_stuff.py -H localhost -n
     CHECKMEMCACHE OK:  3.18% full on localhost 
