@@ -63,6 +63,7 @@ STYLE = {
             "magenta"    :     "\033[35m",
             "cyan"       :     "\033[36m",
             "white"      :     "\033[37m",}
+
 DEFAULT_STYLE='yellow'
 
 class PrintHelper(object):
@@ -86,8 +87,11 @@ class PrintHelper(object):
     def get_getrate(self):
         cmdget = int( self.stats['cmd_get'] )
         cmdset = int( self.stats['cmd_set'] )
-        getrate = ( (cmdget) * 100) / (cmdget + cmdset)
-        dsp_getrate = getrate + 0.5
+        try:
+            getrate = ( (cmdget) * 100) / (cmdget + cmdset)
+            dsp_getrate = getrate + 0.5
+        except ZeroDivisionError:
+            return [0, 0]
         return [dsp_getrate, getrate]
     
     def get_hitrate(self):
@@ -95,7 +99,6 @@ class PrintHelper(object):
         misses = int( self.stats['get_misses'])
         if hits ==0 and misses == 0:
             return [0, 0]
-        hit_sum = (hits * 100) / (hits + misses)
         if hit_sum == 0:
             hitrate = 0
         else:
@@ -205,17 +208,6 @@ def check_connection(m, cache_host, options):
         return RETURN_CRITICAL
     try:
         stats = h.get_stats()
-        # h.send_cmd( 'stats' )
-        #         stats = {}
-        #         pat = re.compile( r'STAT (\w+) (\w+)' )
-        #         l = '' ;
-        #         while l.find( 'END' ) < 0 :
-        #             l = h.readline()
-        #             if options.verbose:
-        #                 print l
-        #             m = pat.match( l )
-        #             if m :
-        #                 stats[ m.group(1) ] =  m.group(2)
         h.disconnect_all()
     except:
         print "CHECKMEMCACHE CRITICAL: could not read/write memcache server!"
