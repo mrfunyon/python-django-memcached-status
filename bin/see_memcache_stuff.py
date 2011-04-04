@@ -199,29 +199,29 @@ def show_memcache_servers(options,server='NONE'):
 
 def check_connection(m, cache_host, options):
     try:
-        h = memcache._Host( cache_host )
-        h.connect()
+        h = memcache.Client([cache_host,])
     except:
         print "CHECKMEMCACHE CRITICAL: memcached server down!"
         return RETURN_CRITICAL
     try:
-        h.send_cmd( 'stats' )
-        stats = {}
-        pat = re.compile( r'STAT (\w+) (\w+)' )
-        l = '' ;
-        while l.find( 'END' ) < 0 :
-            l = h.readline()
-            if options.verbose:
-                print l
-            m = pat.match( l )
-            if m :
-                stats[ m.group(1) ] =  m.group(2)
-        h.close_socket()
+        stats = h.get_stats()
+        # h.send_cmd( 'stats' )
+        #         stats = {}
+        #         pat = re.compile( r'STAT (\w+) (\w+)' )
+        #         l = '' ;
+        #         while l.find( 'END' ) < 0 :
+        #             l = h.readline()
+        #             if options.verbose:
+        #                 print l
+        #             m = pat.match( l )
+        #             if m :
+        #                 stats[ m.group(1) ] =  m.group(2)
+        h.disconnect_all()
     except:
         print "CHECKMEMCACHE CRITICAL: could not read/write memcache server!"
         return RETURN_CRITICAL
         
-    ph = PrintHelper(stats, options, cache_host) # helper for stats.
+    ph = PrintHelper(stats[0][1], options, cache_host) # helper for stats.
     if options.verbose:
         print stats
     print_status_report(ph)
